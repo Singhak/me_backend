@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import * as fs from "fs"
 
 cloudinary.config({
     cloud_name: process.env.CLOUDNIARY_CLOUD_NAME,
@@ -6,12 +7,16 @@ cloudinary.config({
     api_secret: process.env.CLOUDNIARY_API_SECRET
 });
 
-const uploadFile = async (file) => {
+const CloudianryUploadFile = async (fileLocalPath) => {
     try {
-        return await cloudinary.uploader.upload(file, { format: 'auto' });
+        let response = await cloudinary.uploader.upload(fileLocalPath, { resource_type: 'auto', folder: "tvb" });
+        fs.unlinkSync(fileLocalPath);
+        return response.url
     } catch (error) {
         console.log('Error while uploading file in cloudlinary: ', error)
+        fs.unlinkSync(fileLocalPath);
+        return null
     }
 }
 
-export { uploadFile }; git
+export { CloudianryUploadFile };
