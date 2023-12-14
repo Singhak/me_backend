@@ -34,6 +34,9 @@ const userSchema = new mongoose.Schema({
     coverImage: {
         type: String
     },
+    refreshToken: {
+        type: String
+    },
     watchHistory: [{
         type: Schema.Types.ObjectId,
         ref: "Video"
@@ -51,18 +54,13 @@ userSchema.methods.isPasswordSame = async function (password) {
 
 userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
-        {
-            _id: this._id,
-            username: this.username,
-            email: this.email,
-            fullName: this.fullName
-        }, process.env.JWT_TOKEN_SECRET, { expiresIn: process.env.JWT_TOKEN_EXPIRY });
+        { _id: this._id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
+    );
 }
 userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
-        {
-            _id: this._id,
-        }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: process.env.REFERESH_TOKEN_EXPIRY });
+        { _id: this._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
+    );
 }
 
 export const User = mongoose.model("User", userSchema);
