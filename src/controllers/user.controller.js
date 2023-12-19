@@ -4,6 +4,7 @@ import { ApiError } from "../utils/apiErrorHandler.utils.js"
 import { CloudianryUploadFile } from "../utils/fileupload.utils.js"
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/apiResponseHandler.utils.js"
+import jwt from "jsonwebtoken"
 
 
 const cookiesOptions = {
@@ -94,6 +95,21 @@ const userLogout = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "User logedout sucessfully"));
 })
 
+const refreshUserAccessToken = asyncHandler(async (req, res) => {
+    let incommingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    if (!incommingRefreshToken) throw new ApiError(401, 'Invalid refresh token');
+    let { _id } = jwt.verify(incommingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+    let user = await User.findById(_id).exec();
+    if (!user) throw new ApiError(401, 'Invalid Refresh token');
+    if (incommingRefreshToken !== user.refreshToken) throw new ApiError(401, 'Invalid Refresh token');
+
+    let { accessToken, refreshToken } = await generateTokens(user._id);
+    res.status(200)
+        .cookie("accessToken", accessToken, cookiesOptions).cookie("refreshToken", refreshToken, cookiesOptions)
+        .json(new ApiResponse(200, { accessToken, refreshToken }, 'Access Token Refresh succesfully'))
+})
+
+
 async function generateTokens(userId) {
     try {
         const user = await User.findById({ _id: userId }).exec();
@@ -108,4 +124,4 @@ async function generateTokens(userId) {
     }
 }
 
-export { registerUser, userLogin, userLogout }
+export { registerUser, userLogin, userLogout, refreshUserAccessToken }
