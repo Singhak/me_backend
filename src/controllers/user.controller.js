@@ -11,6 +11,21 @@ const cookiesOptions = {
     httpOnly: true,
     secure: true
 }
+
+async function generateTokens(userId) {
+    try {
+        const user = await User.findById({ _id: userId }).exec();
+        let accessToken = user.generateAccessToken();
+        let refreshToken = user.generateRefreshToken();
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+        return { accessToken, refreshToken };
+    } catch (error) {
+        console.log("generateTokens: Error while generating JWT Tokens: ", error);
+        throw new ApiError('500', "Somting went wrong while generating tokens");
+    }
+}
+
 const registerUser = asyncHandler(async (req, res) => {
     // extract user detail from req
     const { username, fullName, email, password } = req.body;
@@ -109,19 +124,46 @@ const refreshUserAccessToken = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, { accessToken, refreshToken }, 'Access Token Refresh succesfully'))
 })
 
+const updateLoginPassword = asyncHandler(async (req, res) => {
+    let { oldPassword, newPassword } = req.body;
+    let user = req.user;
 
-async function generateTokens(userId) {
-    try {
-        const user = await User.findById({ _id: userId }).exec();
-        let accessToken = user.generateAccessToken();
-        let refreshToken = user.generateRefreshToken();
-        user.refreshToken = refreshToken;
-        await user.save({ validateBeforeSave: false });
-        return { accessToken, refreshToken };
-    } catch (error) {
-        console.log("generateTokens: Error while generating JWT Tokens: ", error);
-        throw new ApiError('500', "Somting went wrong while generating tokens");
+    if (!user) throw new ApiError(401, 'User is not login');
+
+    if (!(oldPassword && newPassword)) {
+        throw new ApiError(400, "Old and new password are required");
     }
-}
+    let isPasswordSame = await user.isPasswordSame(oldPassword);
+    if (!isPasswordSame) throw new ApiError(401, 'Old password is not valid');
 
-export { registerUser, userLogin, userLogout, refreshUserAccessToken }
+    user.password = newPassword;
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json(new ApiResponse(200, {}, "User Password updated sucessfully"));
+})
+
+const updateAvatarImage = asyncHandler(async (req, res) => {
+    let { user, file } = req;
+    if (!user) throw new ApiError(401, "User is not login");
+    if (!file) throw new ApiError(400, "Avatar image is required");
+    let avatarLocalPath = file.path
+    let avatarPath = await CloudianryUploadFile(avatarLocalPath);
+    if (!avatarPath) throw new ApiError(500, "Unable to upload avatar image");
+    user.avatar = avatarPath;
+    await user.save({ validateBeforeSave: false });
+    res.status(200).json(new ApiResponse(200, user, "Avatar Image updated sucessfullly."));
+})
+
+const updateCoverImage = asyncHandler(async (req, res) => {
+    let { user, file } = req;
+    if (!user) throw new ApiError(401, "User is not login");
+    if (!file) throw new ApiError(400, "Cover image is required");
+    let coverImageLocalPath = file.path
+    let coverImagePath = await CloudianryUploadFile(coverImageLocalPath);
+    if (!coverImagePath) throw new ApiError(500, "Unable to upload cover image");
+    user.coverImage = coverImagePath;
+    await user.save({ validateBeforeSave: false });
+    res.status(200).json(new ApiResponse(200, user, "Cover Image updated sucessfullly."));
+})
+
+export { registerUser, userLogin, userLogout, refreshUserAccessToken, updateLoginPassword, updateCoverImage, updateAvatarImage }
