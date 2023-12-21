@@ -1,5 +1,5 @@
 import { asyncHandler } from "../utils/asyncHandler.utils.js";
-import { whichRequiredFieldsEmpty, isUserExist, isValidEmail } from "../validations/user.validation.js";
+import { whichRequiredFieldsEmpty, isUserExist, isValidEmail, isUsernameExist, isEmailExist } from "../validations/user.validation.js";
 import { ApiError } from "../utils/apiErrorHandler.utils.js"
 import { CloudianryUploadFile } from "../utils/fileupload.utils.js"
 import { User } from "../models/user.model.js";
@@ -37,7 +37,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, whichFieldIsEmpty);
     }
 
-    if (isValidEmail(email)) {
+    if (!isValidEmail(email)) {
         throw new ApiError(400, 'Email is not valid');
     }
 
@@ -115,13 +115,13 @@ const refreshUserAccessToken = asyncHandler(async (req, res) => {
     if (!incommingRefreshToken) throw new ApiError(401, 'Invalid refresh token');
     let { _id } = jwt.verify(incommingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
     let user = await User.findById(_id).exec();
-    if (!user) throw new ApiError(401, 'Invalid Refresh token');
-    if (incommingRefreshToken !== user.refreshToken) throw new ApiError(401, 'Invalid Refresh token');
+    if (!user) throw new ApiError(401, 'Invalid refresh token');
+    if (incommingRefreshToken !== user.refreshToken) throw new ApiError(401, 'Invalid refresh token');
 
     let { accessToken, refreshToken } = await generateTokens(user._id);
     res.status(200)
         .cookie("accessToken", accessToken, cookiesOptions).cookie("refreshToken", refreshToken, cookiesOptions)
-        .json(new ApiResponse(200, { accessToken, refreshToken }, 'Access Token Refresh succesfully'))
+        .json(new ApiResponse(200, { accessToken, refreshToken }, 'Access Token refresh succesfully'))
 })
 
 const updateLoginPassword = asyncHandler(async (req, res) => {
@@ -131,7 +131,7 @@ const updateLoginPassword = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(401, 'User is not login');
 
     if (!(oldPassword && newPassword)) {
-        throw new ApiError(400, "Old and new password are required");
+        throw new ApiError(400, "Old and New password are required");
     }
     let isPasswordSame = await user.isPasswordSame(oldPassword);
     if (!isPasswordSame) throw new ApiError(401, 'Old password is not valid');
@@ -146,7 +146,7 @@ const updateAvatarImage = asyncHandler(async (req, res) => {
     let { user, file } = req;
     if (!user) throw new ApiError(401, "User is not login");
     if (!file) throw new ApiError(400, "Avatar image is required");
-    let avatarLocalPath = file.path
+    let avatarLocalPath = file.path;
     let avatarPath = await CloudianryUploadFile(avatarLocalPath);
     if (!avatarPath) throw new ApiError(500, "Unable to upload avatar image");
     user.avatar = avatarPath;
@@ -166,4 +166,28 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, user, "Cover Image updated sucessfullly."));
 })
 
-export { registerUser, userLogin, userLogout, refreshUserAccessToken, updateLoginPassword, updateCoverImage, updateAvatarImage }
+const updateUserDetails = asyncHandler(async (req, res) => {
+    let { fullName, email, username } = req.body;
+    let user = req.user;
+    if (!fullName && (!email && !username)) throw new ApiError(400, "Data is not provided to update");
+
+    if (fullName) user.fullName = fullName;
+
+    if (email && email !== user.email) {
+        if (await isEmailExist(email)) {
+            throw new ApiError('400', "Email already exist");
+        }
+        user.email = email;
+    }
+    if (username && (username !== user.username)) {
+        if (await isUsernameExist(username)) {
+            throw new ApiError('400', "Username already exist");
+        }
+        user.username = username;
+    }
+
+    await user.save({ validateBeforeSave: false });
+    res.status(200).json(new ApiResponse(200, user, "User detail updated sucessfully"));
+})
+
+export { registerUser, userLogin, userLogout, refreshUserAccessToken, updateLoginPassword, updateCoverImage, updateAvatarImage, updateUserDetails }

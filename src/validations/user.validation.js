@@ -20,4 +20,11 @@ const isUserExist = async function (username, email) {
     return await User.findOne({ $or: [{ username }, { email }] }).exec();
 }
 
-export { whichRequiredFieldsEmpty, isValidEmail, isUserExist }
+async function isEmailExist(email) {
+    return !!await User.findOne({ email: email }).exec();
+}
+async function isUsernameExist(username) {
+    return !!await User.findOne({ username: username }).exec();
+}
+
+export { whichRequiredFieldsEmpty, isValidEmail, isUserExist, isUsernameExist, isEmailExist }
