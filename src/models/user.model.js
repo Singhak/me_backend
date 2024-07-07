@@ -37,6 +37,9 @@ const userSchema = new mongoose.Schema({
     refreshToken: {
         type: String
     },
+    jwtTimestamp: {
+        type: Number
+    },
     watchHistory: [{
         type: Schema.Types.ObjectId,
         ref: "Video"
@@ -54,7 +57,7 @@ userSchema.methods.isPasswordSame = async function (password) {
 
 userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
-        { _id: this._id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
+        { _id: this._id, jwtTimestamp: this.jwtTimestamp }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
     );
 }
 userSchema.methods.generateRefreshToken = function () {
