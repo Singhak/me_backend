@@ -10,7 +10,8 @@ const VerifyJWT = asyncHandler(async (req, res, next) => {
     if (!accessToken) throw new ApiError('401', "Unautorized Access");
 
     let user = await User.findById({ _id: decodedToken._id }).select("-password");
-    if (!user) throw new ApiError(401, "Invalid Access Token");
+
+    if (!user || user.jwtTimestamp != decodedToken.jwtTimestamp) throw new ApiError(401, "Invalid Access Token");
     // if refresh token not exist, it means we logout the user and user is using old accesstoken
     if (!user?.refreshToken) throw new ApiError(401, "Invalid Access Token");
     req.user = user;
