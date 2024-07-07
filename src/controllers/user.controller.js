@@ -15,6 +15,7 @@ const cookiesOptions = {
 async function generateTokens(userId) {
     try {
         const user = await User.findById({ _id: userId }).exec();
+        user.jwtTimestamp = Date.now();
         let accessToken = user.generateAccessToken();
         let refreshToken = user.generateRefreshToken();
         user.refreshToken = refreshToken;
@@ -29,7 +30,7 @@ async function generateTokens(userId) {
 const registerUser = asyncHandler(async (req, res) => {
     // extract user detail from req
     const { username, fullName, email, password } = req.body;
-    console.log({ username, fullName, email, password });
+    // console.log({ username, fullName, email, password });
 
     // Check required field availibility
     let whichFieldIsEmpty = whichRequiredFieldsEmpty({ username, fullName, email, password });
@@ -43,36 +44,36 @@ const registerUser = asyncHandler(async (req, res) => {
 
     // check user already exist or not
     let existingUser = await isUserExist(username, email);
-    // console.log(existingUser);
     if (existingUser) {
         throw new ApiError(409, 'User already exist.')
     }
 
     // check for user uploaded images
     const { avatar = [], coverImage = [] } = req.files;
-    // console.log(avatar, coverImage);
 
     if (!avatar.length) throw new ApiError(400, 'Avatar image is required');
 
     // upload image at cloudinary
-    let avatarPath = avatar.length && await CloudianryUploadFile(avatar[0].path);
-    let coverImgPath = coverImage.length && await CloudianryUploadFile(coverImage[0].path);
+    /*let avatarPath = avatar.length && avatar[0].path;//await CloudianryUploadFile(avatar[0].path);
+    let coverImgPath =  coverImage.length && coverImage[0].path;//await CloudianryUploadFile(coverImage[0].path);*/
+
+    // Local Storage
+    let avatarPath = avatar.length && avatar[0].path;
+    let coverImgPath = coverImage.length && coverImage[0].path;
 
     if (!avatarPath) throw new ApiError(500, 'Unable to upload image');
 
     // prepare object to create user
     const user = { username, fullName, email, avatar: avatarPath, coverImage: coverImgPath };
     let createdUser = await User.create({ ...user, password });
-    // console.log({ createdUser });
     if (!createdUser) {
         throw new ApiError(500, 'Somthing went wrong while creating user');
     }
 
-    res.status(200).json(new ApiResponse(200, user, 'User sucessfully created'))
+    res.status(201).json(new ApiResponse(201, user, 'User sucessfully created'))
 })
 
 const userLogin = asyncHandler(async (req, res) => {
-    // console.log(req)
     // extract user detail from req
     let { username, email, password } = req.body;
     // username email password
@@ -89,9 +90,7 @@ const userLogin = asyncHandler(async (req, res) => {
     if (!await userExist.isPasswordSame(password)) {
         throw new ApiError(401, "User Authentication failed");
     }
-
     const { accessToken, refreshToken } = await generateTokens(userExist._id);
-    console.log({ accessToken, refreshToken });
     let userDetailsToSend = await User.findById({ _id: userExist.id }).select("-password -refreshToken -__v");
 
     res.status(200)
@@ -103,11 +102,11 @@ const userLogin = asyncHandler(async (req, res) => {
 
 const userLogout = asyncHandler(async (req, res) => {
     let user = req.user;
-    await User.findByIdAndUpdate({ _id: user._id }, { refreshToken: null }).exec();
+    await User.findByIdAndUpdate({ _id: user._id }, { refreshToken: null, jwtTimestamp: null }).exec();
     res.status(200)
         .cookie('accessToken', "", cookiesOptions)
         .cookie('refreshToken', "", cookiesOptions)
-        .json(new ApiResponse(200, {}, "User logedout sucessfully"));
+        .json(new ApiResponse(200, {}, "User loged out sucessfully"));
 })
 
 const refreshUserAccessToken = asyncHandler(async (req, res) => {
@@ -126,9 +125,9 @@ const refreshUserAccessToken = asyncHandler(async (req, res) => {
 
 const updateLoginPassword = asyncHandler(async (req, res) => {
     let { oldPassword, newPassword } = req.body;
-    let user = req.user;
+    if (!req.user) throw new ApiError(401, 'User is not login');
 
-    if (!user) throw new ApiError(401, 'User is not login');
+    let user = await User.findOne({ _id: req.user._id })
 
     if (!(oldPassword && newPassword)) {
         throw new ApiError(400, "Old and New password are required");
@@ -137,6 +136,8 @@ const updateLoginPassword = asyncHandler(async (req, res) => {
     if (!isPasswordSame) throw new ApiError(401, 'Old password is not valid');
 
     user.password = newPassword;
+    user.jwtTimestamp = null;
+    user.refreshToken = null;
     await user.save({ validateBeforeSave: false });
 
     res.status(200).json(new ApiResponse(200, {}, "User Password updated sucessfully"));
@@ -147,7 +148,8 @@ const updateAvatarImage = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(401, "User is not login");
     if (!file) throw new ApiError(400, "Avatar image is required");
     let avatarLocalPath = file.path;
-    let avatarPath = await CloudianryUploadFile(avatarLocalPath);
+    // let avatarPath = await CloudianryUploadFile(avatarLocalPath);
+    let avatarPath = avatarLocalPath;
     if (!avatarPath) throw new ApiError(500, "Unable to upload avatar image");
     user.avatar = avatarPath;
     await user.save({ validateBeforeSave: false });
@@ -159,7 +161,8 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(401, "User is not login");
     if (!file) throw new ApiError(400, "Cover image is required");
     let coverImageLocalPath = file.path
-    let coverImagePath = await CloudianryUploadFile(coverImageLocalPath);
+    // let coverImagePath = await CloudianryUploadFile(coverImageLocalPath);
+    let coverImagePath = coverImageLocalPath;
     if (!coverImagePath) throw new ApiError(500, "Unable to upload cover image");
     user.coverImage = coverImagePath;
     await user.save({ validateBeforeSave: false });
@@ -190,4 +193,57 @@ const updateUserDetails = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, user, "User detail updated sucessfully"));
 })
 
-export { registerUser, userLogin, userLogout, refreshUserAccessToken, updateLoginPassword, updateCoverImage, updateAvatarImage, updateUserDetails }
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    let { username } = req.params;
+    if (!username) throw new ApiError(400, 'username is required');
+
+    User.aggregate([
+        {
+            $match: { username }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "channel",
+                foreignField: "_id",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "susbcriber",
+                foreignField: "_id",
+                as: "subscribered"
+            }
+        },
+        {
+            $addFields: {
+                subscribers: { $size: "$subscribers" },
+                subscribered: { $size: "$subscribered" },
+                isSubscriber: {
+                    // $cond: {
+                    //     if:{$in:[_id, "$subscribers.susbcriber"]},
+                    //     then:true,
+                    //     else:false
+                    // }
+                    $cond: [{ $in: [req.user?._id, "$subscribers.susbcriber"] }, true, false]
+                }
+            }
+        },
+        {
+            $project: {
+                subscribers: 1,
+                subscribered: 1,
+                username: 1,
+                email: 1,
+                coverImage: 1,
+                avatar: 1,
+                fullName: 1,
+                isSubscriber: 1
+            }
+        }
+    ])
+})
+
+export { registerUser, userLogin, userLogout, refreshUserAccessToken, updateLoginPassword, updateCoverImage, updateAvatarImage, updateUserDetails, getUserChannelProfile }
