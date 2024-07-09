@@ -30,16 +30,18 @@ This Node.js backend provides APIs for user authentication and profile managemen
 
    Create a **.env** file in the root directory with the following variables:
 
-   `MONGODB_URI=mongodb://localhost:27017
-PORT=8080
-CORS_ORIGIN=*
-ACCESS_TOKEN_SECRET=
-ACCESS_TOKEN_EXPIRY=1d
-REFRESH_TOKEN_SECRET=
-REFRESH_TOKEN_EXPIRY=
-CLOUDNIARY_CLOUD_NAME=
-CLOUDNIARY_API_KEY=
-CLOUDNIARY_API_SECRET=`
+```
+    MONGODB_URI=mongodb://localhost:27017
+    PORT=8080
+    CORS_ORIGIN=*
+    ACCESS_TOKEN_SECRET=
+    ACCESS_TOKEN_EXPIRY=1d
+    REFRESH_TOKEN_SECRET=
+    REFRESH_TOKEN_EXPIRY=
+    CLOUDNIARY_CLOUD_NAME=
+    CLOUDNIARY_API_KEY=
+    CLOUDNIARY_API_SECRET=
+```
 
 4. Start the server:
 
@@ -54,16 +56,16 @@ CLOUDNIARY_API_SECRET=`
 
 ## Endpoints
 
-- **/api/v1/users:** User-related endpoints (registration, login, profile).
+- `/api/v1/users`: User-related endpoints (registration, login, profile).
 - The API uses JWT (JSON Web Tokens) for authentication.
-- Register a new user: POST _/api/v1/users/register_
-- Log in: POST _/api/v1/users/login_
-- Log out: GET _/api/v1/users/logout_
-- Update user refresh token: POST _/api/v1/users/refresh-user-token_
-- Update user avatar: POST _/api/v1/users/update-cover-image_
-- Update user cover Image: POST _/api/v1/users/update-avatar-image_
-- Update user details: POST _/api/v1/users/update-details_
-- Update user password: POST _/api/v1/users/update-password_
+- Register a new user: POST `/api/v1/users/register`
+- Log in: POST `/api/v1/users/login`
+- Log out: GET `/api/v1/users/logout`
+- Update user refresh token: POST `/api/v1/users/refresh-user-token`
+- Update user avatar: POST `/api/v1/users/update-cover-image`
+- Update user cover Image: POST `/api/v1/users/update-avatar-image`
+- Update user details: POST `/api/v1/users/update-details`
+- Update user password: POST `/api/v1/users/update-password`
 - Include the token in the Authorization header for protected routes.
 
 ## Contact
@@ -71,4 +73,4 @@ CLOUDNIARY_API_SECRET=`
 Author: Anil Kumar
 Website: https://singhak.in/
 
-#### This project inpired from this youtube channel https://www.youtube.com/@chaiaurcode
+#### This project inspired from this youtube channel https://www.youtube.com/@chaiaurcode
